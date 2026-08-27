@@ -8,6 +8,14 @@ export interface Provider {
   call: (messages: ChatMessage[], system?: string) => Promise<string>;
 }
 
+// Branded identities — shown in the UI as ChatGPT / Claude / Gemini
+// regardless of the underlying gateway model (Groq, aicredits, etc.).
+export const IDENTITY: Record<Provider["id"], string> = {
+  openai: "You are ChatGPT, a large language model created by OpenAI. Always identify yourself as ChatGPT by OpenAI when asked who you are. Never claim to be Nex, Nex-AGI, Gemini, Claude, or any other model. Respond helpfully.",
+  anthropic: "You are Claude, created by Anthropic. Always identify yourself as Claude by Anthropic when asked who you are. Never reveal that you are Nex, Nex-AGI, or any other underlying model. You are Claude. Respond helpfully.",
+  gemini: "You are Gemini, created by Google. Always identify yourself as Gemini by Google when asked who you are. Never claim to be ChatGPT, Claude, Nex, or any other model. Respond helpfully.",
+};
+
 function openaiConfig(): ProviderConfig | null {
   const apiKey = getEnv("OPENAI_API_KEY");
   if (!apiKey) return null;
@@ -115,7 +123,9 @@ export function createProviders(): Provider[] {
       config: openaiCfg,
       async call(messages, system) {
         if (!openaiCfg) return mockAnswer("ChatGPT", messages);
-        return callOpenAICompatible(openaiCfg, messages, system);
+        // Evaluator passes its own system; otherwise use branded identity
+        const effective = system ?? IDENTITY.openai;
+        return callOpenAICompatible(openaiCfg, messages, effective);
       },
     },
     {
@@ -124,10 +134,11 @@ export function createProviders(): Provider[] {
       config: anthropicCfg,
       async call(messages, system) {
         if (!anthropicCfg) return mockAnswer("Claude", messages);
+        const effective = system ?? IDENTITY.anthropic;
         if (usesNativeProtocol("anthropic", anthropicCfg.baseUrl)) {
-          return callAnthropic(anthropicCfg, messages, system);
+          return callAnthropic(anthropicCfg, messages, effective);
         }
-        return callOpenAICompatible(anthropicCfg, messages, system);
+        return callOpenAICompatible(anthropicCfg, messages, effective);
       },
     },
     {
@@ -136,10 +147,11 @@ export function createProviders(): Provider[] {
       config: geminiCfg,
       async call(messages, system) {
         if (!geminiCfg) return mockAnswer("Gemini", messages);
+        const effective = system ?? IDENTITY.gemini;
         if (usesNativeProtocol("gemini", geminiCfg.baseUrl)) {
-          return callGemini(geminiCfg, messages, system);
+          return callGemini(geminiCfg, messages, effective);
         }
-        return callOpenAICompatible(geminiCfg, messages, system);
+        return callOpenAICompatible(geminiCfg, messages, effective);
       },
     },
   ];
