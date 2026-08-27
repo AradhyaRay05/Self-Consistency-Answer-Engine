@@ -44,7 +44,7 @@ export default function ModelCard({ response, loading, onClose, onExpand }: Mode
   const showActions = !loading && response && response.status !== "error";
 
   return (
-    <section className="flex min-h-[420px] flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <section className="flex h-[480px] flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <header className="flex shrink-0 items-center justify-between px-4 py-3.5">
         <span className="flex items-center gap-2 text-sm font-semibold text-zinc-800">
           {loading ? (
@@ -76,7 +76,7 @@ export default function ModelCard({ response, loading, onClose, onExpand }: Mode
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {loading ? (
           <div className="animate-pulse space-y-2.5 pt-1">
             {[...Array(4)].map((_, i) => (

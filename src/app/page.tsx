@@ -263,7 +263,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:flex sm:min-h-[420px] sm:gap-4 sm:overflow-x-auto sm:pb-2">
+              <div className="grid gap-4 sm:flex sm:gap-4 sm:overflow-x-auto sm:pb-2">
                 {visibleModels.map((modelId) => (
                   <div key={modelId} className="flex sm:min-w-[340px] sm:flex-1">
                     <ModelCard
