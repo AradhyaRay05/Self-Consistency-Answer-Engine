@@ -44,7 +44,7 @@ export default function ModelCard({ response, loading, onClose, onExpand }: Mode
   const showActions = !loading && response && response.status !== "error";
 
   return (
-    <section className="flex h-[480px] flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <section className="flex h-[480px] w-full flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <header className="flex shrink-0 items-center justify-between px-4 py-3.5">
         <span className="flex items-center gap-2 text-sm font-semibold text-zinc-800">
           {loading ? (
