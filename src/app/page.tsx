@@ -263,9 +263,9 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:flex sm:gap-4 sm:overflow-x-auto sm:pb-2">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {visibleModels.map((modelId) => (
-                  <div key={modelId} className="flex sm:min-w-[340px] sm:flex-1">
+                  <div key={modelId} className="flex">
                     <ModelCard
                       response={active.responses.find((r) => r.modelId === modelId)}
                       loading={pending.includes(modelId)}
