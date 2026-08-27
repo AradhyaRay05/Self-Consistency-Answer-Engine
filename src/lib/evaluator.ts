@@ -1,5 +1,6 @@
 import type { ModelResponse, SynthesisResult } from "./types";
 import { createProviders } from "./providers";
+import { chatCompletion, getEnv } from "./providers/base";
 
 const EVALUATOR_SYSTEM_PROMPT = `You are an expert answer evaluator and synthesizer.
 
@@ -52,6 +53,54 @@ export function parseEvaluatorOutput(raw: string): {
   };
 }
 
+function getEvaluatorConfig(): { apiKey: string; baseUrl: string; model: string } | null {
+  const apiKey = getEnv("EVALUATOR_API_KEY") || getEnv("ANTHROPIC_API_KEY");
+  if (!apiKey) return null;
+  const baseUrl =
+    getEnv("EVALUATOR_BASE_URL") ||
+    getEnv("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1");
+  const model =
+    getEnv("EVALUATOR_MODEL") ||
+    getEnv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514");
+  return { apiKey, baseUrl, model };
+}
+
+async function callEvaluator(
+  prompt: string,
+  config: { apiKey: string; baseUrl: string; model: string }
+): Promise<string> {
+  // Native Anthropic Messages API vs OpenAI-compatible gateway
+  if (config.baseUrl.includes("anthropic.com")) {
+    return chatCompletion(
+      `${config.baseUrl}/messages`,
+      {
+        "x-api-key": config.apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      {
+        model: config.model,
+        max_tokens: 2048,
+        system: EVALUATOR_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+      }
+    );
+  }
+  // OpenAI-compatible (aicredits, OpenRouter, Groq, etc.)
+  return chatCompletion(
+    `${config.baseUrl}/chat/completions`,
+    { Authorization: `Bearer ${config.apiKey}` },
+    {
+      model: config.model,
+      messages: [
+        { role: "system", content: EVALUATOR_SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+    }
+  );
+}
+
 export async function synthesizeFinalAnswer(
   question: string,
   responses: ModelResponse[]
@@ -59,20 +108,38 @@ export async function synthesizeFinalAnswer(
   const prompt = buildEvaluatorPrompt(question, responses);
   const providers = createProviders();
 
-  // Prefer Claude as the evaluator; fall back to the first working provider.
+  // Prefer dedicated evaluator (EVALUATOR_* env, shown as Claude in UI) — this is
+  // separate from the three answer cards. The Claude card keeps its own model
+  // (nex-agi/nex-n2-mini), while the synthesis step can use a different model
+  // behind the same Claude branding.
+  const evalConfig = getEvaluatorConfig();
+  const hasAnyProvider = evalConfig !== null || providers.some((p) => p.config);
+
+  // Mock synthesis when no real keys are configured.
+  if (!hasAnyProvider) {
+    return mockSynthesis(question, responses);
+  }
+
+  // 1) Try dedicated evaluator first (always displayed as "Claude" in the UI)
+  if (evalConfig) {
+    try {
+      const raw = await callEvaluator(prompt, evalConfig);
+      const { reasoning, answer } = parseEvaluatorOutput(raw);
+      return { evaluator: "Claude", reasoning, answer };
+    } catch {
+      // fall through to per-provider fallback
+    }
+  }
+
+  // 2) Fallback — try the three answer providers in priority order
   const order = ["anthropic", "openai", "gemini"];
   const sorted = [...providers].sort(
     (a, b) => order.indexOf(a.id) - order.indexOf(b.id)
   );
 
   let lastError: Error | null = null;
-
-  // Mock synthesis when no real keys are configured.
-  if (!sorted.some((p) => p.config)) {
-    return mockSynthesis(question, responses);
-  }
-
   for (const provider of sorted) {
+    if (!provider.config) continue;
     try {
       const raw = await provider.call(
         [{ role: "user", content: prompt }],
